@@ -1,9 +1,11 @@
 import sys
 from pathlib import Path
+from typing import List, Optional
 
 import ezdxf
 from ezdxf.document import Drawing
-from shapely import Polygon
+from ezdxf.entities import LWPolyline
+from shapely import Polygon, Point
 import geopandas as gpd
 
 
@@ -26,7 +28,7 @@ def main(input_path: Path):
     msp = doc.modelspace()
 
     # get all polylines objects
-    polylines = []
+    polylines: List[Optional[LWPolyline]] = []
     for item in msp:
         if item.dxf.dxftype == 'LWPOLYLINE':
             polylines.append(item)
@@ -43,9 +45,24 @@ def main(input_path: Path):
     texts = []
     for item in msp:
         if item.dxf.dxftype == 'TEXT':
-            texts.append(item)
+            coords = list(item.get_placement()[1])[0:2]
+            row = {'text': item.dxf.text, 'geom': Point(coords)}
+            texts.append(row)
+    texts_df = gpd.GeoDataFrame(texts, geometry='geom')
 
-    gpd.GeoSeries(polygons).to_file(input_path.with_suffix('.gpkg'))
+    # match point to a polygon
+    result_df = []
+    for polygon in polygons:
+        matched_bool = texts_df.intersects(polygon)
+        if sum(matched_bool) != 1:
+            continue
+            # todo: handle this
+        result_row = {'annotation': texts_df.iloc[0]['text'],
+                      'geom': polygon}
+        result_df.append(result_row)
+    result_df = gpd.GeoDataFrame(result_df, geometry='geom')
+
+    result_df.to_file(str(input_path.with_suffix('.gpkg')))
 
 
 if __name__ == '__main__':
