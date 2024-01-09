@@ -25,37 +25,51 @@ def load_file(path: Path) -> Drawing:
     return doc
 
 
-def main(input_path: Path):
-    # load the dxf drawing
-    doc = load_file(input_path)
-    msp = doc.modelspace()
-
-    # get all polylines objects
-    polylines: List[Optional[LWPolyline]] = []
-    for item in msp:
-        if item.dxf.dxftype == 'LWPOLYLINE':
-            polylines.append(item)
-
-    # convert polylines to shapely polygons if possible
+def get_all_polygons(modelspace) -> List[Optional[LWPolyline]]:
     polygons = []
-    for polyline in polylines:
-        if polyline.is_closed and not polyline.has_arc:
-            with polyline.points("xy") as vertices:
-                polygon = Polygon(vertices)
-                polygons.append(polygon)
+    for item in modelspace:
+        if item.dxf.dxftype == 'LWPOLYLINE' and item.is_closed and not item.has_arc:
+            polygons.append(item)
 
-    # get all text objects
+    return polygons
+
+
+def cad_polygons_to_shapely(cad_polygons: List) -> List[Polygon]:
+    geospatial_polygons = []
+    for polyline in cad_polygons:
+        with polyline.points("xy") as vertices:
+            geospatial_polygons.append(Polygon(vertices))
+
+    return geospatial_polygons
+
+def get_all_texts()
     texts = []
     for item in msp:
         if item.dxf.dxftype == 'TEXT':
             coords = list(item.get_placement()[1])[0:2]
             row = {'text': item.dxf.text, 'geom': Point(coords)}
             texts.append(row)
+
+
+@app.command()
+def main(input_path: Path,
+         output_path: Optional[Path] = None):
+    # load the dxf drawing
+    doc = load_file(input_path)
+    msp = doc.modelspace()
+
+    # get all suitable objects
+    cad_polygons = get_all_polygons(msp)
+
+    # convert CAD polygons (LWPOLYLINES) to shapely polygons
+    geospatial_polygons = cad_polygons_to_shapely(cad_polygons)
+
+    # get all text objects
     texts_df = gpd.GeoDataFrame(texts, geometry='geom')
 
     # match point to a polygon
     result_df = []
-    for polygon in polygons:
+    for polygon in cad_polygons:
         matched_bool = texts_df.intersects(polygon)
         if sum(matched_bool) != 1:
             continue
@@ -65,7 +79,10 @@ def main(input_path: Path):
         result_df.append(result_row)
     result_df = gpd.GeoDataFrame(result_df, geometry='geom')
 
-    result_df.to_file(str(input_path.with_suffix('.gpkg')))
+    if not output_path:
+        output_path = input_path.with_suffix('.gpkg')
+
+    result_df.to_file(str(output_path))
 
 
 if __name__ == '__main__':
