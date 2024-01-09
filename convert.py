@@ -3,10 +3,13 @@ from pathlib import Path
 from typing import List, Optional
 
 import ezdxf
+import typer
 from ezdxf.document import Drawing
 from ezdxf.entities import LWPolyline
 from shapely import Polygon, Point
 import geopandas as gpd
+
+app = typer.Typer()
 
 
 def load_file(path: Path) -> Drawing:
@@ -66,5 +69,6 @@ def main(input_path: Path):
 
 
 if __name__ == '__main__':
-    file_path = Path('sample_data/polygons_1.dxf')
-    main(file_path)
+    app()
+    # file_path = Path('sample_data/polygons_1.dxf')
+    # main(file_path)
