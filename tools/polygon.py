@@ -1,20 +1,22 @@
-from typing import List, Optional
+from typing import List
 
-from ezdxf.entities import LWPolyline
-from shapely import Polygon
 import geopandas as gpd
+from ezdxf.entities import LWPolyline
+from ezdxf.layouts import Modelspace
+from shapely import Polygon
 
 
-def get_all_polygons(modelspace) -> List[Optional[LWPolyline]]:
+def get_all_polygons(modelspace: Modelspace) -> List[LWPolyline]:
     polygons = []
     for item in modelspace:
+        item: LWPolyline
         if item.dxf.dxftype == 'LWPOLYLINE' and item.is_closed and not item.has_arc:
             polygons.append(item)
 
     return polygons
 
 
-def cad_polygons_to_shapely(cad_polygons: List) -> List[Polygon]:
+def cad_polygons_to_shapely(cad_polygons: List[LWPolyline]) -> List[Polygon]:
     geospatial_polygons = []
     for polyline in cad_polygons:
         with polyline.points("xy") as vertices:

@@ -5,10 +5,10 @@ import geopandas as gpd
 import pandas as pd
 
 from tools import load_file
-from tools.polygon import (get_all_polygons, 
-                           cad_polygons_to_shapely, 
+from tools.polygon import (get_all_polygons,
+                           cad_polygons_to_shapely,
                            match_text_to_polygon)
-from tools.text import get_all_texts
+from tools.text import get_texts_with_positions
 
 
 def match_label_to_closed_polyline(input_path: Path,
@@ -23,7 +23,7 @@ def match_label_to_closed_polyline(input_path: Path,
     geospatial_polygons = cad_polygons_to_shapely(cad_polygons=cad_polygons)
 
     # get all text objects
-    texts = get_all_texts(msp)
+    texts = get_texts_with_positions(msp)
     texts_df = gpd.GeoDataFrame(data=texts, geometry='geom')
 
     # match point to a polygon
@@ -31,6 +31,6 @@ def match_label_to_closed_polyline(input_path: Path,
                                        texts_df=texts_df)
 
     if existing_df:
-        existing_df = pd.concat([existing_df, matched_df])
+        matched_df = pd.concat([existing_df, matched_df])
 
-    return existing_df
+    return matched_df
