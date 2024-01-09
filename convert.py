@@ -42,13 +42,30 @@ def cad_polygons_to_shapely(cad_polygons: List) -> List[Polygon]:
 
     return geospatial_polygons
 
-def get_all_texts()
+
+def get_all_texts(msp) -> List:
     texts = []
     for item in msp:
         if item.dxf.dxftype == 'TEXT':
             coords = list(item.get_placement()[1])[0:2]
             row = {'text': item.dxf.text, 'geom': Point(coords)}
             texts.append(row)
+    return texts
+
+
+def match_text_to_polygon(polygons: List[Polygon],
+                          texts_df: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
+    result_df = []
+    for polygon in polygons:
+        matched_bool = texts_df.intersects(polygon)
+        if sum(matched_bool) != 1:
+            continue
+            # todo: handle this
+        result_row = {'annotation': texts_df.iloc[0]['text'],
+                      'geom': polygon}
+        result_df.append(result_row)
+    result_df = gpd.GeoDataFrame(result_df, geometry='geom')
+    return result_df
 
 
 @app.command()
@@ -65,19 +82,12 @@ def main(input_path: Path,
     geospatial_polygons = cad_polygons_to_shapely(cad_polygons)
 
     # get all text objects
+    texts = get_all_texts(msp)
     texts_df = gpd.GeoDataFrame(texts, geometry='geom')
 
     # match point to a polygon
-    result_df = []
-    for polygon in cad_polygons:
-        matched_bool = texts_df.intersects(polygon)
-        if sum(matched_bool) != 1:
-            continue
-            # todo: handle this
-        result_row = {'annotation': texts_df.iloc[0]['text'],
-                      'geom': polygon}
-        result_df.append(result_row)
-    result_df = gpd.GeoDataFrame(result_df, geometry='geom')
+    result_df = match_text_to_polygon(polygons=geospatial_polygons,
+                                      texts_df=texts_df)
 
     if not output_path:
         output_path = input_path.with_suffix('.gpkg')
@@ -87,5 +97,3 @@ def main(input_path: Path,
 
 if __name__ == '__main__':
     app()
-    # file_path = Path('sample_data/polygons_1.dxf')
-    # main(file_path)
